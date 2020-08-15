@@ -1,0 +1,82 @@
+public class KacApiWrapper implements Database.AllowsCallouts {
+    /**
+     * Handle any Track and Identify calls originating from other Apex code
+     */
+    private String baseUrl = 'https://a.klaviyo.com/api/';
+    private String publicKey = '';
+    private String privateKey = '';
+
+    // Construct API request object using a map of API keys
+    public KacApiWrapper(Map<String,String>  apiKeys) {
+      this.publicKey = apiKeys.get('PublicKey');
+      this.privateKey = apiKeys.get('PrivateKey');
+    }
+
+    // Lock the timestamp to "now"
+    public Integer lockTimestamp() {
+        Datetime dt = Datetime.now();
+        return dt.getTime().intValue() / 1000;
+    }
+
+    // Base64 and URL encode parameters for request
+    public String buildQueryString(Map<String,Object> params) {
+        String jsonString = JSON.serialize(params);
+        Blob jsonBlob = Blob.valueOf(jsonString);
+        String b64String = EncodingUtil.base64Encode(jsonBlob);
+        return EncodingUtil.urlEncode(b64String, 'UTF-8');
+    }
+
+    // Make a request to the specified Klaviyo API path
+    public void makeRequest(String method, String url) {
+      // Build request
+      HttpRequest request = new HttpRequest();
+      request.setTimeout(5000);
+      request.setMethod(method);
+      request.setEndpoint(url);
+      // Send request
+      HTTP http = new HTTP();
+      HTTPResponse res;
+      try {
+          res = http.send(request);
+      	  System.debug(url);
+          System.debug(res.toString());
+      } catch (System.CalloutException e) {
+      	  System.debug(url);
+          System.debug('ERROR:' + e);
+      }
+    }
+
+    // Build Identify payload
+    public void identify(Map<String,Object> properties) {
+        Map<String,Object> params = new Map<String,Object> ();
+        params.put('token', this.publicKey);
+        params.put('properties', properties);
+        makeRequest('GET', this.baseUrl + 'identify' + '?data=' + buildQueryString(params));
+    }
+
+    // Build Track payload if track is sent with only an event name and email
+    public void track(String event, Map<String,Object> customerProperties) {
+      track(event, customerProperties, new Map<String,Object> ());
+    }
+
+    // Build Track payload if track is sent with only an event name and email and timestamp
+    public void track(String event, Map<String,Object> customerProperties, Integer timestamp) {
+      track(event, customerProperties, new Map<String,Object> (), timestamp);
+    }
+
+    // Build Track payload if track is sent without a timestamp, lock it to now
+    public void track(String event, Map<String,Object> customerProperties, Map<String,Object> properties) {
+      track(event, customerProperties, properties, lockTimestamp());
+    }
+
+    // Build Track payload if all parameters are sent
+    public void track(String event, Map<String,Object> customerProperties, Map<String,Object> properties, Integer timestamp) {
+        Map<String,Object> params = new Map<String,Object> ();
+        params.put('token', this.publicKey);
+        params.put('event', event);
+        params.put('time', timestamp);
+        params.put('properties', properties);
+        params.put('customer_properties', customerProperties);
+        makeRequest('GET', this.baseUrl + 'track' + '?data=' + buildQueryString(params));
+    }
+}
