@@ -27,11 +27,11 @@ There are some functionality and examples prebuilt in this code package that wil
 ### KAC Trigger Usage
 In order to implement webhook-like functionality, you will need to set up some way to watch for updates in the SFDC environment. The easiest way to do this using only APEX is to:
 1) Set up a trigger that watches a specific SObject for inserts/updated.
-2) Check each SObject for updates to a set of fields specified by an MDT record (eg. `KacLeadFieldMap` record on `KacLeadField__mdt`).
+2) Check each SObject for updates to a set of "watched" fields specified by an MDT record (eg. `KacLeadFieldMap` record on `KacLeadField__mdt`).
 3) Send the set of updated SObjects to a queueable (to run asynchronously) processor that will process the data for HTTP calouts.
 
 ### KacProcessor Usage
-To use the processor, 
+Using the processor is the more complicated part of the implementation of this connector, it is how you convert the data retrieved from the updated/inserted SObjects into a trackable format for our APIs. The `processLead()` example included in this package shows how to programmatically retrieve "watched" fields (eg. `KacLeadFieldMap` record on `KacLeadField__mdt`) from the set of Lead records and construct them into Maps for Identify API payloads but more advanced functionality can also be included (eg. loading in formula fields or using lookups and SOQL to retrieve data from other types of related SObject records.
 
 ### KacApiWrapper Usage
 If you'd like to build your own connector or integration in some way just using our native Track and Identify APIs, the API wrapper can also be used directly. This library wraps our Track and Identify APIs in APEX methods and uses `Map<String, String>`'s as an APEX-native analog for JSON.
