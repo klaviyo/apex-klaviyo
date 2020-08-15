@@ -1,0 +1,100 @@
+@isTest
+private class KlaviyoApexConnectorTests {
+    private class SingleRequestMock implements HttpCalloutMock {
+        /** Create a mock for HTTP responses from callouts. */
+        public HTTPResponse respond(HTTPRequest req) {
+            HTTPResponse res = new HTTPResponse();
+            res.setBody('{}');
+            res.setStatusCode(200);
+            return res;
+        }
+    }
+
+    /*
+     *  Apex-based Klaviyo API wrapper
+     */
+
+    /** Tests the KacApiWrapper APEX class. */
+    static testMethod void testKacApiWrapper() {
+        /**
+         * Runs a series of mock Apex-Klaviyo Track/Identify requests
+         */
+        // Start test
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new SingleRequestMock());
+        Integer timestamp = Datetime.now().getTime().intValue() / 1000;
+        String event = 'Apex Klaviyo API Wrapper Test Event';
+        Map < String, Object > customerProperties = new Map < String, Object > ();
+        Map < String, Object > properties = new Map < String, Object > ();
+        Map <String, String> apiKeys = K4KProcessor.getMetadataTypeValuesByLabel('KacApiKeys__mdt','TestAccount'); // Test Account
+        KacApiWrapper klaviyoClient = new KacApiWrapper(apiKeys);
+        /** Test that the KacApiWrapper class's identify method works. */
+        klaviyoClient.identify(customerProperties);
+        /** Test that the KacApiWrapper class's track method works with
+            all params. */
+        klaviyoClient.track(event, customerProperties, properties, timestamp);
+        /** Test that the KacApiWrapper class's track method works with
+            just api key, event name, customer properties, and event properties. */
+        klaviyoClient.track(event, customerProperties, properties);
+        /** Test that the KacApiWrapper class's track method works with
+            just api key, event name, customer properties, and timestamp. */
+        klaviyoClient.track(event, customerProperties, timestamp);
+        /** Test that the KacApiWrapper class's track method works with
+            just api key, event name, and customer properties. */
+        klaviyoClient.track(event, customerProperties);
+        Test.stopTest();
+    }
+
+
+    /*
+     *  Apex-based Klaviyo API wrapper
+     */
+
+    /** Tests the K4KLeadTrigger APEX trigger. */
+    static testMethod void testK4KLeadTrigger() {
+        /** Test the trigger on an Lead for insert & update runs successfully. */
+        // Start test
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new SingleRequestMock());
+        // Create new lead
+        Lead lead = new Lead();
+        lead.LastName = 'Test Last';
+        lead.Company = 'Test Co';
+        // Test insterting the lead
+        insert lead;
+        System.assert(K4KProcessor.alreadyProcessed == true);
+        K4KProcessor.alreadyProcessed = false;
+        // Set new Lead Status
+        lead.Status = 'Disqualified';
+        lead.SALES_Disqualification_Reason__c = 'testing';
+        // Test updating lead
+        update lead;
+        System.assert(K4KProcessor.alreadyProcessed == true);
+        Test.stopTest();
+    }
+
+    /** Tests the K4KProcessor Lead process. */
+    static testMethod void testK4KLeadProcessor() {
+        /** Test the trigger on an Account for insert & update runs successfully. */
+        // Start test
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new SingleRequestMock());
+        // Create new lead
+        Lead lead = new Lead();
+        lead.LastName = 'Test Last';
+        lead.Company = 'Test Co';
+        // Set new Lead Status
+        lead.Status = 'Disqualified';
+        lead.SALES_Disqualification_Reason__c = 'testing';
+        // Queue lead list for processing
+        K4KProcessor k4kClient = new K4KProcessor(new Set<Lead>{lead},'Lead');
+        ID jobID = System.enqueueJob(k4kClient);
+        System.debug('Queued new job with jobID' + jobID);
+
+        K4KProcessor k4kClientError = new K4KProcessor(new Set<Lead>{null},'Lead');
+        ID jobIDError = System.enqueueJob(k4kClientError);
+        System.debug('Queued new job with jobID' + jobIDError);
+
+        Test.stopTest();
+    }
+}

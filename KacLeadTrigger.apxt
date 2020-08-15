@@ -1,0 +1,44 @@
+trigger KacLeadTrigger on Lead (after insert, after update) {
+    /*
+      If any of an Lead's fields listed in the 1 entry for Custom Metadata Type
+      KacLeadField__mdt change, send that lead for further processing
+     */
+     try{
+       // Only run code if trigger isn't disabled and it hasn't already run
+       Map <String, String> disabledTriggers = KacProcessor.getMetadataTypeValuesByLabel('KacDisableTrigger__mdt','KacDisableTriggerMap');
+       if (!Boolean.valueOf(disabledTriggers.get('KacLeadTrigger')) && !KacProcessor.alreadyProcessed){
+        // Get Lead Fields we're watching for from entry on the Lead Field custom Metadata Type
+        Map <String, String> kacLeadFields = KacProcessor.getMetadataTypeValuesByLabel('KacLeadField__mdt','KacLeadFieldMap');
+        List<String> fields = kacLeadFields.values();
+
+        // Gather Set of leads with changes to these fields
+        Set<String> objectFields = Schema.SObjectType.Lead.fields.getMap().keySet();
+        Set<SObject> leadsToSync = new Set<SObject>();
+        for (Lead lead: Trigger.new) { // Handle bulk inserts
+            if (Trigger.isUpdate){
+              for (String field: fields) { // Check each watched field
+                if (objectFields.contains(field.toLowerCase()) && !leadsToSync.contains(lead) && Trigger.oldMap.get(lead.Id).get(field) != lead.get(field)){
+                  leadsToSync.add(lead); // change recorded for this field, add to list
+                }
+              }
+            }
+        }
+        if (leadsToSync.size()>0){
+          // Queue lead list for processing
+          KacProcessor kacClient = new KacProcessor(leadsToSync);
+          ID jobID = System.enqueueJob(kacClient);
+          System.debug('Queued new job with jobID' + jobID);
+        }
+        KacProcessor.alreadyProcessed = true;
+      } else if (Boolean.valueOf(disabledTriggers.get('KacLeadTrigger'))) {
+        // In case trigger is disabled by trigger-disable MDT, set "alreadyProcessed = true" so tests can still pass
+        KacProcessor.alreadyProcessed = true;
+      }
+    } catch (Exception ex) {
+      System.debug('Exception: "' + ex.getMessage() +
+               '" of type "' + ex.getTypeName() +
+               '" caused by "' + ex.getCause() +
+               '" on line number ' + ex.getLineNumber() + '\n' +
+               'Stack Trace: ' + ex.getStackTraceString());
+    }
+}

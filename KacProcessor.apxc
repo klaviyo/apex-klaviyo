@@ -1,0 +1,175 @@
+public class KacProcessor implements Queueable, Database.AllowsCallouts {
+    // List of SObjects to sync and SObject type (eg. Account, Lead, etc)
+
+    public static Boolean alreadyProcessed = false;
+    private Set<SObject> SObjects = new Set<SObject>();
+    private String objectType = '';
+    private KacApiWrapper klaviyoClient;
+    private String zendeskApiToken;
+
+    // Initialize processor object
+    public KacProcessor(Set<SObject> SObjects) {
+      this.SObjects = SObjects;
+      initializeAPI();
+    }
+    public void initializeAPI(){
+      /* Get API creds and initialize client */
+      // Get current API key set
+      Map <String, String> kacSettings = KacProcessor.getMetadataTypeValuesByLabel('KacCodeSetting__mdt','KacSettingsConfig');
+      String kacApiKeySet = kacSettings.get('API Key Set Toggle');
+      // Retrieve keys for current key set
+      Map <String, String> apiKeys = KacProcessor.getMetadataTypeValuesByLabel('KacApiKeys__mdt',kacApiKeySet);
+      this.klaviyoClient = new KacApiWrapper(apiKeys);
+      this.zendeskApiToken = apiKeys.get('ZendeskAPIKey');
+    }
+
+    /*
+      Utility Functions
+    */
+
+    // Retrieve all values and labels from given MDT object as a Map
+    public static Map <String, String> getMetadataTypeCustomFieldMap(String mdtName) {
+        Map <String, Schema.SObjectType> schemaMap = Schema.getGlobalDescribe();
+        Map <String, Schema.SObjectField> fieldMap = schemaMap.get(mdtName).getDescribe().fields.getMap();
+        Map <String, String> fields = new Map <String, String>();
+        for(Schema.SObjectField sfield : fieldMap.Values())
+        {
+            schema.describefieldresult dfield = sfield.getDescribe();
+            if(dfield.getname().indexOf('__c') != -1){
+                fields.put(dfield.getname(), dfield.getLabel());
+            }
+        }
+        return fields;
+    }
+
+    // Retrieve all values and labels from given MDT record as a Map
+    public static Map <String, String> getMetadataTypeValuesById(String mdtName, String mdtId) {
+        Map <String, String> fields = KacProcessor.getMetadataTypeCustomFieldMap(mdtName);
+        String queryFields = String.join(new List<String>(fields.keySet()), ',');
+        //String queryFields = String.join(fields.keySet(),',');
+        String soqlQuery = 'SELECT '+queryFields+' FROM '+mdtName+' WHERE Id=\''+mdtId+'\' LIMIT 1';
+    	   // Retrieve custom fields from MDT
+        Map<String,Object> fieldMap = new Map<String,Object>();
+        fieldMap = Database.query(soqlQuery).get(0).getPopulatedFieldsAsMap();
+        // Id is automatically retrieved so remove it
+        Set<String> keys = fieldMap.keySet();
+        keys.remove('Id');
+        fieldMap.keySet().retainAll(keys);
+        // Make different Map where the object labels are the keys (instead of the API names)
+        Map<String,String> fieldMapToReturn = new Map<String,String>();
+        for (String fieldName: fields.keySet()) {
+          fieldMapToReturn.put(fields.get(fieldName),
+                               fieldMap.keySet().contains(fieldName) ? fieldMap.get(fieldName).toString() : '');
+        }
+        // Return map of field label keys (the profile property name in Klaviyo) to their set values (the API name of the field in Salesforce).
+        return fieldMapToReturn;
+    }
+
+    // Retrieve all values and labels from given MDT record as a Map
+    public static Map <String, String> getMetadataTypeValuesByLabel(String mdtName, String mdtLabel) {
+        Map <String, String> fields = KacProcessor.getMetadataTypeCustomFieldMap(mdtName);
+        String queryFields = String.join(new List<String>(fields.keySet()), ',');
+        //String queryFields = String.join(fields.keySet(),',');
+        String soqlQuery = 'SELECT '+queryFields+' FROM '+mdtName+' WHERE Label=\''+mdtLabel+'\' LIMIT 1';
+        // Retrieve custom fields from MDT
+        Map<String,Object> fieldMap = new Map<String,Object>();
+        fieldMap = Database.query(soqlQuery).get(0).getPopulatedFieldsAsMap();
+        // Id is automatically retrieved so remove it
+        Set<String> keys = fieldMap.keySet();
+        keys.remove('Id');
+        fieldMap.keySet().retainAll(keys);
+        // Make different Map where the object labels are the keys (instead of the API names)
+        Map<String,String> fieldMapToReturn = new Map<String,String>();
+        for (String fieldName: fields.keySet()) {
+            fieldMapToReturn.put(fields.get(fieldName),
+                                 fieldMap.keySet().contains(fieldName) ? fieldMap.get(fieldName).toString() : '');
+        }
+        // Return map of field label keys (the profile property name in Klaviyo) to their set values (the API name of the field in Salesforce).
+        return fieldMapToReturn;
+    }
+
+    public Map <String,String> cleanMetadataMap(Map <String,String> fieldMap){
+      // Make sure field exists on SObject. If not, remove it.
+      Set<String> keys = fieldMap.keySet();
+      Set<String> objectFields = new Set<String>();
+      if (this.objectType == 'Account') {
+          objectFields = Schema.SObjectType.Account.fields.getMap().keySet();
+      } else if (this.objectType == 'Case') {
+          objectFields = Schema.SObjectType.Case.fields.getMap().keySet();
+      } else if (this.objectType == 'Lead') {
+          objectFields = Schema.SObjectType.Lead.fields.getMap().keySet();
+      }
+      for (String key: keys) {
+        if (!objectFields.contains(fieldMap.get(key).toLowerCase())){
+          keys.remove(key);
+        }
+      }
+      fieldMap.keySet().retainAll(keys);
+      return fieldMap;
+    }
+
+    /*
+      Processing logic for SObjects
+    */
+
+    // Perform processing if SObject is a Account
+    public void processAccount(){}
+
+    // Perform processing if SObject is a Case
+    public void processCase(){}
+
+    // Perform processing if SObject is a Lead
+    public void processLead(){
+      try {
+        // Retrieve preset fields on MDT from Lead Object
+        // Get Lead Fields we're watching for from entry on the Lead Field custom Metadata Type
+        Map <String, String> kacLeadFields = KacProcessor.getMetadataTypeValuesByLabel('KacLeadField__mdt','KacLeadFieldMap');
+        // Clean missing/incorrect keys and Id from field map
+        kacLeadFields = cleanMetadataMap(kacLeadFields);
+        // Get watched fields from list of Leads
+        List<Map<String,Object>> updatedLeads = new List<Map<String,Object>>();
+        // Convert SObject Set to correct Set type
+        Set<Lead> leadObjects = new Set<Lead>();
+        for(SObject item : this.SObjects){
+          leadObjects.add((Lead)item);
+        }
+        for(Lead updatedLead : leadObjects)
+        {
+            Map<String,Object> properties = new Map<String,Object>();
+            properties.put('$email',updatedLead.get('Email'));
+            for(String key : kacLeadFields.keySet())
+            {
+              properties.put(key,updatedLead.get(kacLeadFields.get(key)));
+            }
+            updatedLeads.add(properties);
+        }
+        // Send Identify request for each Lead in list
+        for(Map<String,Object> updatedLead : updatedLeads)
+        {
+          this.klaviyoClient.identify(updatedLead);
+        }
+      } catch (Exception ex) {
+        System.debug('Exception: "' + ex.getMessage() +
+                 '" of type "' + ex.getTypeName() +
+                 '" caused by "' + ex.getCause() +
+                 '" on line number ' + ex.getLineNumber() + '\n' +
+                 'Stack Trace: ' + ex.getStackTraceString());
+      }
+    }
+
+    // Send SObject off for processing depending on type
+    public void execute(QueueableContext context) {
+      // Convert set to List to retrieve elements
+      List<SObject> typeCheckList = new List<SObject>(this.SObjects);
+      // Get the SObject type of the first list element as a string
+      this.objectType = typeCheckList[0].getSObjectType().getDescribe().getName();
+      // Use SObject type to determine processor method
+      if (this.objectType == 'Account') {
+          processAccount();
+      } else if (this.objectType == 'Case') {
+          processCase();
+      } else if (this.objectType == 'Lead') {
+          processLead();
+      }
+    }
+}
