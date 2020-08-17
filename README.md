@@ -12,14 +12,14 @@ KAC consists of 4 code components
 
 and 4 custom Metadata Types (MDTs)
 1) **KacDisableTrigger__mdt** - MDT with checkbox fields whose label matches a trigger name.
-   - **KacDisableTriggerMap** - MDT record representing this mapping to determine if trigger code should be run.
+     - **KacDisableTriggerMap** - MDT record representing this mapping to determine if trigger code should be run.
 2) **KacLeadField__mdt** - MDT record with text fields whose labels map to the resultant property name to track and whose values are the "API name" of the SObject field to watch for changes on.
-   - **KacLeadFieldMap** - MDT record representing this mapping.
+     - **KacLeadFieldMap** - MDT record representing this mapping.
 3) **KacApiKeys__mdt** - MDT with text fields whose labels map to the type of API key (`PublicKey` or `PrivateKey`) and whose values are the API keys for your Klaviyo account.
-   - **TestAccount** - MDT record representing this mapping for your dev/test Klaviyo account.
-   - **ProductionAccount** - MDT record representing this mapping for your production/live Klaviyo account.
+     - **TestAccount** - MDT record representing this mapping for your dev/test Klaviyo account.
+     - **ProductionAccount** - MDT record representing this mapping for your production/live Klaviyo account.
 4) **KacCodeSetting__mdt** - MDT with miscellaneous settings for KAC. currently this contains 1 setting, `API Key Set Toggle`, for determining whether the processor class should use the production or staging API keys.
-   - **KacSettingsConfig** - MDT record representing this mapping.
+     - **KacSettingsConfig** - MDT record representing this mapping.
 
 ## Usage
 There are some functionality and examples prebuilt in this code package that will allow you to slot in your own triggers and processor methods by copying the example for Lead records. There is also the code file for KacApiWrapper which can be used by itself to send Track and Identify requests.
