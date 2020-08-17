@@ -5,27 +5,27 @@ The Klaviyo Apex Connector (KAC) is a set of code files which can be used to con
 
 ## Components
 KAC consists of 4 code components
-1) KacLeadTrigger
-2) KacProcessor
-3) KacApiWrapper
-4) KacTests
+1) **KacLeadTrigger** - an Apex trigger that watches for changes to Lead records on specified fields and sends them to the "Processor" class.
+2) **KacProcessor** - an Apex class that houses the processing/formatting of data from the watched SObjects and sends them to the "API wrapper" class.
+3) **KacApiWrapper** - an Apex class that wraps our Track and Identify APIs in easy-to-use functions.
+4) **KacTests** - tests for the above trigger/classes.
 
 and 4 custom Metadata Types (MDTs)
-1) KacDisableTrigger__mdt
-  - KacDisableTriggerMap
-2) KacLeadField__mdt
-  - KacLeadFieldMap
-3) KacApiKeys__mdt
-  - TestAccount
-  - ProductionAccount
-4) KacCodeSetting__mdt
-  - KacSettingsConfig
+1) **KacDisableTrigger__mdt** - MDT with checkbox fields whose label matches a trigger name.
+   - **KacDisableTriggerMap** - MDT record representing this mapping to determine if trigger code should be run.
+2) **KacLeadField__mdt** - MDT record with text fields whose labels map to the resultant property name to track and whose values are the "API name" of the SObject field to watch for changes on.
+   - **KacLeadFieldMap** - MDT record representing this mapping.
+3) **KacApiKeys__mdt** - MDT with text fields whose labels map to the type of API key (`PublicKey` or `PrivateKey`) and whose values are the API keys for your Klaviyo account.
+   - **TestAccount** - MDT record representing this mapping for your dev/test Klaviyo account.
+   - **ProductionAccount** - MDT record representing this mapping for your production/live Klaviyo account.
+4) **KacCodeSetting__mdt** - MDT with miscellaneous settings for KAC. currently this contains 1 setting, `API Key Set Toggle`, for determining whether the processor class should use the production or staging API keys.
+   - **KacSettingsConfig** - MDT record representing this mapping.
 
 ## Usage
 There are some functionality and examples prebuilt in this code package that will allow you to slot in your own triggers and processor methods by copying the example for Lead records. There is also the code file for KacApiWrapper which can be used by itself to send Track and Identify requests.
 
 ### KAC Trigger Usage
-In order to implement webhook-like functionality, you will need to set up some way to watch for updates in the SFDC environment. The easiest way to do this using only APEX is to:
+In order to implement webhook-like functionality, you will need to set up some way to watch for updates in the SFDC environment. The easiest way to do this using only Apex is to:
 1) Set up a trigger that watches a specific SObject for inserts/updated.
 2) Check each SObject for updates to a set of "watched" fields specified by an MDT record (eg. `KacLeadFieldMap` record on `KacLeadField__mdt`).
 3) Send the set of updated SObjects to a queueable (to run asynchronously) processor that will process the data for HTTP calouts.
@@ -34,7 +34,7 @@ In order to implement webhook-like functionality, you will need to set up some w
 Using the processor is the more complicated part of the implementation of this connector, it is how you convert the data retrieved from the updated/inserted SObjects into a trackable format for our APIs. The `processLead()` example included in this package shows how to programmatically retrieve "watched" fields (eg. `KacLeadFieldMap` record on `KacLeadField__mdt`) from the set of Lead records and construct them into Maps for Identify API payloads but more advanced functionality can also be included (eg. loading in formula fields or using lookups and SOQL to retrieve data from other types of related SObject records.
 
 ### KacApiWrapper Usage
-If you'd like to build your own connector or integration in some way just using our native Track and Identify APIs, the API wrapper can also be used directly. This library wraps our Track and Identify APIs in APEX methods and uses `Map<String, String>`'s as an APEX-native analog for JSON.
+If you'd like to build your own connector or integration in some way just using our native Track and Identify APIs, the API wrapper can also be used directly. This library wraps our Track and Identify APIs in Apex methods and uses `Map<String, String>`'s as an Apex-native analog for JSON.
 
 #### Initialize the wrapper
 Initialize ApexKlaviyoAPI wrapper class. It takes a Map of public and private api keys.
@@ -46,14 +46,14 @@ Map<String, String> apiKeys = new map<String, String> {
 ApexKlaviyoAPI klaviyoClient = new ApexKlaviyoAPI(apiKeys);
 ```
 #### Build and send Track & Identify requests
-As an analog for JSON, this wrapper uses Maps which are a more native JSON-like data structure in APEX. Build the Map as you'd normally build a JSON payload fro Track/Identify then send the request using methods on the wrapper object initialized earlier.
+As an analog for JSON, this wrapper uses Maps which are a more native JSON-like data structure in Apex. Build the Map as you'd normally build a JSON payload fro Track/Identify then send the request using methods on the wrapper object initialized earlier.
 
 ##### Identify
 Identify only has a single method that takes a map of customer properties
 ```
 // Build Identify properties
 Map<String, Object> customerProperties = new map<String, Object> {
-    '$email' => 'walid.bendris+apex@klaviyo.com',
+    '$email' => 'apex.person@test.com',
     '$first_name' => 'Apex',
     '$last_name' => 'Code',
     'ApexIdentify' => true,
