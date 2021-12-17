@@ -20,10 +20,13 @@ public class KacApiWrapper implements Database.AllowsCallouts {
 
     // Base64 and URL encode parameters for request
     public String buildQueryString(Map<String,Object> params) {
-        String jsonString = JSON.serialize(params);
-        Blob jsonBlob = Blob.valueOf(jsonString);
-        String b64String = EncodingUtil.base64Encode(jsonBlob);
-        return EncodingUtil.urlEncode(b64String, 'UTF-8');
+        return EncodingUtil.urlEncode(
+          EncodingUtil.base64Encode(
+            Blob.valueOf(
+              JSON.serialize(params)
+            )
+          ), 'UTF-8'
+        );
     }
 
     // Make a request to the specified Klaviyo API path
@@ -47,36 +50,47 @@ public class KacApiWrapper implements Database.AllowsCallouts {
     }
 
     // Build Identify payload
-    public void identify(Map<String,Object> properties) {
-        Map<String,Object> params = new Map<String,Object> ();
-        params.put('token', this.publicKey);
-        params.put('properties', properties);
-        makeRequest('GET', this.baseUrl + 'identify' + '?data=' + buildQueryString(params));
+    public Map<String,Object> buildIdentifyPayload(Map<String,Object> properties) {
+        return new Map<String,Object>{
+          'token' => this.publicKey,
+          'properties' => properties
+        };
+    }
+
+    // Build Identify URL and send request
+    public void identify(Map<String,Object> payload) {
+        String url = this.baseUrl + 'identify' + '?data=';
+        makeRequest('GET', url + buildQueryString(payload));
     }
 
     // Build Track payload if track is sent with only an event name and email
-    public void track(String event, Map<String,Object> customerProperties) {
-      track(event, customerProperties, new Map<String,Object> ());
+    public Map<String,Object> buildTrackPayload(String event, Map<String,Object> customerProperties) {
+      return buildTrackPayload(event, customerProperties, new Map<String,Object> ());
     }
 
     // Build Track payload if track is sent with only an event name and email and timestamp
-    public void track(String event, Map<String,Object> customerProperties, Integer timestamp) {
-      track(event, customerProperties, new Map<String,Object> (), timestamp);
+    public Map<String,Object> buildTrackPayload(String event, Map<String,Object> customerProperties, Long timestamp) {
+      return buildTrackPayload(event, customerProperties, new Map<String,Object> (), timestamp);
     }
 
     // Build Track payload if track is sent without a timestamp, lock it to now
-    public void track(String event, Map<String,Object> customerProperties, Map<String,Object> properties) {
-      track(event, customerProperties, properties, lockTimestamp());
+    public Map<String,Object> buildTrackPayload(String event, Map<String,Object> customerProperties, Map<String,Object> properties) {
+      return buildTrackPayload(event, customerProperties, properties, lockTimestamp());
     }
 
     // Build Track payload if all parameters are sent
-    public void track(String event, Map<String,Object> customerProperties, Map<String,Object> properties, Integer timestamp) {
-        Map<String,Object> params = new Map<String,Object> ();
-        params.put('token', this.publicKey);
-        params.put('event', event);
-        params.put('time', timestamp);
-        params.put('properties', properties);
-        params.put('customer_properties', customerProperties);
-        makeRequest('GET', this.baseUrl + 'track' + '?data=' + buildQueryString(params));
+    public Map<String,Object> buildTrackPayload(String event, Map<String,Object> customerProperties, Map<String,Object> properties, Long timestamp) {
+        return new Map<String,Object> {
+          'token' => this.publicKey,
+          'event' => event,
+          'customer_properties' => customerProperties,
+          'properties' => properties,
+          'time' => timestamp
+      };
+    }
+
+    public void track(Map<String,Object> payload) {
+        String url = this.baseUrl + 'track' + '?data=';
+        makeRequest('GET', url + buildQueryString(payload));
     }
 }
