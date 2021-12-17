@@ -13,9 +13,9 @@ public class KacApiWrapper implements Database.AllowsCallouts {
     }
 
     // Lock the timestamp to "now"
-    public Integer lockTimestamp() {
+    public Long lockTimestamp() {
         Datetime dt = Datetime.now();
-        return dt.getTime().intValue() / 1000;
+        return dt.getTime() / 1000;
     }
 
     // Base64 and URL encode parameters for request
