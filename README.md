@@ -18,7 +18,7 @@ and 4 custom Metadata Types (MDTs)
 3) **KacApiKeys__mdt** - MDT with text fields whose labels map to the type of API key (`PublicKey` or `PrivateKey`) and whose values are the API keys for your Klaviyo account.
    - **TestAccount** - MDT record representing this mapping for your dev/test Klaviyo account.
    - **ProductionAccount** - MDT record representing this mapping for your production/live Klaviyo account.
-4) **KacCodeSetting__mdt** - MDT with miscellaneous settings for KAC. currently this contains 1 setting, `API Key Set Toggle`, for determining whether the processor class should use the production or staging API keys.
+4) **KacCodeSetting__mdt** - MDT with miscellaneous settings for KAC. Currently this contains 1 setting, `API Key Set Toggle`, for determining whether the processor class should use the production or staging API keys.
    - **KacSettingsConfig** - MDT record representing this mapping.
 
 ## Usage
